@@ -402,6 +402,7 @@ export default function Home() {
   }, [venues, handleSelectVenue]); // Depend on venues and selection handler
 
   // Main component return JSX
+  // Force deploy trigger
   return (
     // Main container takes full viewport height and prevents overflow
     <div className="flex flex-col h-screen overflow-hidden bg-gray-100 dark:bg-gray-900">
