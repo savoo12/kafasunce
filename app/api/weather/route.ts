@@ -1,5 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
+// Explicitly set the runtime to edge for Cloudflare compatibility
+export const runtime = 'edge';
+
 // Get the API key from the server-side environment variable
 const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
 
