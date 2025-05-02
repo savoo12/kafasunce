@@ -160,9 +160,11 @@ export default function Home() {
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
+      // Use the Standard style which supports 3D terrain and buildings
+      style: 'mapbox://styles/mapbox/standard', 
       center: [INITIAL_LNG, INITIAL_LAT],
       zoom: INITIAL_ZOOM,
+      pitch: 60, // Add initial pitch for 3D view
       accessToken: MAPBOX_ACCESS_TOKEN,
       // Mobile optimizations
       touchZoomRotate: true,
@@ -177,7 +179,81 @@ export default function Home() {
       // Optimize zoom for mobile
       if (isMobile) {
         map.current?.setMaxZoom(17);
+        map.current?.setPitch(45); // Adjust pitch for mobile maybe
       }
+
+      // --- Add 3D lighting and shadows ---
+      if (map.current) {
+        // Set an initial light configuration using the v3 API structure
+        // See: https://docs.mapbox.com/mapbox-gl-js/api/map/#map#setlight
+        // Standard style handles shadows based on light automatically
+        map.current.setLight({
+          anchor: 'map', // Light position relative to the map
+          color: 'white', // Ambient light color
+          intensity: 0.4, // Ambient light intensity
+          position: [1.5, 180, 60] // Initial Directional Light: [radial, azimuthal, polar]
+        });
+        
+        // The directional light properties (like color, intensity) are implicitly 
+        // controlled by the style's default settings or can be set via style spec directly.
+        // We will only animate the position for the sun effect.
+
+        // Function to animate sun position
+        const updateSunPosition = () => {
+          if (!map.current) return; // Exit if map is removed
+
+          // Calculate sun position based on time of day
+          const now = new Date();
+          // Normalize time to a 0-1 cycle over 24 hours
+          const hours = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
+          // Calculate sun's azimuthal position (horizontal angle)
+          // Simple approximation: east at sunrise (6am), south at noon (12pm), west at sunset (6pm)
+          const azimuth = (hours / 24) * 360 + 90; // Offset by 90 to have sun rise in east
+          // Calculate sun's polar position (vertical angle)
+          // Simple approximation: peaks at noon, below horizon at night
+          const polar = Math.max(0, Math.sin((hours / 24) * Math.PI) * 90); 
+
+          map.current.setLight({
+            // Update only the directional light properties needed
+            position: [1.5, azimuth, polar] // Radial, Azimuthal, Polar coordinates for light position
+          });
+
+          // Request next frame
+          requestAnimationFrame(updateSunPosition);
+        }
+
+        // Start the animation
+        requestAnimationFrame(updateSunPosition);
+
+        // Add 3D buildings layer (example using Mapbox Streets source layer)
+        // Ensure the 'building' layer from the Standard style is visible, 
+        // or add your own if using a different source. Standard should have it.
+        // Example if needed:
+        // map.current.addLayer({
+        //   'id': '3d-buildings',
+        //   'source': 'composite', // Source containing building data (varies by style)
+        //   'source-layer': 'building', // Source layer name (varies by style)
+        //   'filter': ['==', 'extrude', 'true'],
+        //   'type': 'fill-extrusion',
+        //   'minzoom': 15,
+        //   'paint': {
+        //     'fill-extrusion-color': '#aaa',
+        //     'fill-extrusion-height': [
+        //       'interpolate', ['linear'], ['zoom'],
+        //       15, 0,
+        //       15.05, ['get', 'height']
+        //     ],
+        //     'fill-extrusion-base': [
+        //       'interpolate', ['linear'], ['zoom'],
+        //       15, 0,
+        //       15.05, ['get', 'min_height']
+        //     ],
+        //     'fill-extrusion-opacity': 0.8
+        //   }
+        // });
+      }
+      // --- End 3D lighting ---
+
       // The GeoJSON source and layer will be added by the other useEffect hook
       // once the venues data is available and the map is loaded.
     });
