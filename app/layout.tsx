@@ -1,7 +1,7 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from "next/font/google";
-import Script from 'next/script';
+import MapScripts from './components/MapScripts';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,17 +29,7 @@ export default function RootLayout({
         <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-50`}>
-        <Script 
-          src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'
-          strategy="beforeInteractive"
-        />
-        <Script 
-          id="search-js" 
-          defer 
-          src="https://api.mapbox.com/search-js/v1.0.0/web.js"
-          strategy="beforeInteractive"
-          onLoad={() => window.dispatchEvent(new Event('mapbox-search-loaded'))}
-        />
+        <MapScripts />
         {children}
       </body>
     </html>
