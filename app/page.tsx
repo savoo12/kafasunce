@@ -25,19 +25,51 @@ interface CityWeather {
 }
 
 async function fetchCityWeather(): Promise<CityWeather> {
-  const res = await fetch(
-    `https://api.openweathermap.org/data/2.5/weather?lat=${INITIAL_LAT}&lon=${INITIAL_LNG}&units=metric&appid=${process.env.WEATHER_API_KEY}`,
-    { cache: 'no-store' }
-  );
-  const data = await res.json();
-  return {
-    temperature: Math.round(data.main.temp),
-    condition: data.weather[0].main,
-    isSunny: data.weather[0].main.toLowerCase() === 'clear',
-    precipitation: data.rain?.['1h'] || 0,
-    humidity: data.main.humidity,
-    windSpeed: Math.round(data.wind.speed)
+  const fallback: CityWeather = {
+    temperature: 0,
+    condition: 'Unknown',
+    isSunny: false,
+    precipitation: 0,
+    humidity: 0,
+    windSpeed: 0
   };
+  // Guard against missing API key
+  if (!process.env.WEATHER_API_KEY) {
+    console.error('Missing WEATHER_API_KEY environment variable');
+    return fallback;
+  }
+
+  try {
+    const res = await fetch(
+      `https://api.openweathermap.org/data/2.5/weather?lat=${INITIAL_LAT}&lon=${INITIAL_LNG}&units=metric&appid=${process.env.WEATHER_API_KEY}`,
+      { cache: 'no-store' }
+    );
+
+    if (!res.ok) {
+      console.error('Weather API request failed:', res.status, res.statusText);
+      return fallback;
+    }
+
+    const data = await res.json();
+    const temp = data?.main?.temp;
+    if (typeof temp !== 'number') {
+      console.error('Unexpected weather data shape:', data);
+      return fallback;
+    }
+    const condition = data.weather?.[0]?.main || 'Unknown';
+
+    return {
+      temperature: Math.round(temp),
+      condition,
+      isSunny: condition.toLowerCase() === 'clear',
+      precipitation: data?.rain?.['1h'] || 0,
+      humidity: typeof data.main?.humidity === 'number' ? data.main.humidity : 0,
+      windSpeed: Math.round((data.wind?.speed as number) || 0)
+    };
+  } catch (error) {
+    console.error('Error fetching city weather:', error);
+    return fallback;
+  }
 }
 
 export default async function Page() {

@@ -22,7 +22,8 @@ type VenueFeature = GeoJSON.Feature<GeoJSON.Point, Omit<Venue, 'location'>>;
 
 export function useMapbox(
   initialVenues: Venue[],
-  setMapError: React.Dispatch<React.SetStateAction<string | null>>
+  setMapError: React.Dispatch<React.SetStateAction<string | null>>,
+  overrideTime?: Date
 ) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
@@ -51,18 +52,6 @@ export function useMapbox(
     const map = mapRef.current;
 
     map.on('load', () => {
-      // Animate sun position
-      const updateSunPosition = () => {
-        if (!mapRef.current) return;
-        const now = new Date();
-        const hours = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
-        const azimuth = (hours / 24) * 360 + 90;
-        const polar = Math.max(0, Math.sin((hours / 24) * Math.PI) * 90);
-        mapRef.current.setLight({ position: [1.5, azimuth, polar] });
-        animationFrameId.current = requestAnimationFrame(updateSunPosition);
-      };
-      animationFrameId.current = requestAnimationFrame(updateSunPosition);
-
       // Add venues source & layer
       const venuesGeoJSON: GeoJSON.FeatureCollection<GeoJSON.Point, Omit<Venue, 'location'>> = {
         type: 'FeatureCollection',
@@ -111,6 +100,52 @@ export function useMapbox(
       mapRef.current = null;
     };
   }, [initialVenues, setMapError]);
+
+  // Handle sun light: animate if no overrideTime, or set static light when overrideTime changes
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+    // cancel any previous animation
+    if (animationFrameId.current !== null) {
+      cancelAnimationFrame(animationFrameId.current);
+      animationFrameId.current = null;
+    }
+    // helper to apply light using the new setLights API
+    const applyLight = (time: Date) => {
+      const hours = time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600;
+      const azimuth = (hours / 24) * 360 + 90;
+      const polar = Math.max(0, Math.sin((hours / 24) * Math.PI) * 90);
+      map.setLight({ position: [1.5, azimuth, polar] });
+    };
+    // start the animation loop
+    const startAnimation = () => {
+      const animate = () => {
+        applyLight(new Date());
+        animationFrameId.current = requestAnimationFrame(animate);
+      };
+      animationFrameId.current = requestAnimationFrame(animate);
+    };
+    // choose static or animated mode
+    const start = () => {
+      if (overrideTime) {
+        applyLight(overrideTime);
+      } else {
+        startAnimation();
+      }
+    };
+    // defer until style is loaded
+    if (map.isStyleLoaded()) {
+      start();
+    } else {
+      map.once('load', start);
+    }
+    return () => {
+      if (animationFrameId.current !== null) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+      }
+    };
+  }, [overrideTime]);
 
   return { mapContainerRef, mapRef };
 } 

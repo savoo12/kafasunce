@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useMapbox } from '../hooks/useMapbox';
+import TimeSlider from './TimeSlider';
 
 export interface Venue {
   id: string;
@@ -46,9 +47,10 @@ export default function HomeClient({ initialVenues, initialCityWeather }: HomeCl
   const [venues] = useState<Venue[]>(initialVenues);
   const [currentWeather] = useState<CityWeather>(initialCityWeather);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [sliderTime, setSliderTime] = useState<Date | undefined>(undefined);
 
   // Use the custom hook for map and venues layer
-  const { mapContainerRef } = useMapbox(venues, setMapError);
+  const { mapContainerRef } = useMapbox(venues, setMapError, sliderTime);
 
   if (mapError) {
     return (
@@ -63,7 +65,8 @@ export default function HomeClient({ initialVenues, initialCityWeather }: HomeCl
       <div className="flex-grow relative">
         <div ref={mapContainerRef} className="absolute inset-0 map-container" />
       </div>
-      <div className="p-4 bg-white dark:bg-slate-800">
+      <div className="p-4 bg-white dark:bg-slate-800 space-y-4">
+        <TimeSlider onTimeChange={setSliderTime} />
         <h2 className="text-lg font-semibold">Venues Loaded: {venues.length}</h2>
         <p>Current Temp: {currentWeather.temperature}°C - {currentWeather.condition}</p>
       </div>
