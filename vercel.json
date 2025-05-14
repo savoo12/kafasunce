@@ -1,0 +1,6 @@
+{
+  "env": {
+    "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN": "pk.eyJ1Ijoic2F2bzEyMzQ1NiIsImEiOiJjbWE1bG4rcTYwOGp6MmtzOW9mYnVjeXUyIn0.yPX-jDgJ4AQxsWuBMbRmEw",
+    "NEXT_PUBLIC_MAPBOX_SEARCH_TOKEN": "pk.eyJ1Ijoic2F2bzEyMzQ1NiIsImEiOiJjbWE1bG4rcTYwOGp6MmtzOW9mYnVjeXUyIn0.yPX-jDgJ4AQxsWuBMbRmEw"
+  }
+} 
