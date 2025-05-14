@@ -6,15 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "deploy": "npm run build && wrangler pages deploy out --project-name belgrade-venues-weather --commit-dirty=true",
-    "deploy:worker": "next build && wrangler deploy",
-    "pages:build": "next build && next-on-pages",
-    "pages:deploy": "next build && next-on-pages && wrangler pages deploy .vercel/output/static",
-    "pages:watch": "next-on-pages --watch",
-    "pages:dev": "wrangler pages dev .vercel/output/static --compatibility-flag=nodejs_compat",
-    "worker:deploy": "next build && next-on-pages && wrangler deploy",
-    "worker:dev": "next build && next-on-pages && wrangler dev"
+    "lint": "next lint"
   },
   "dependencies": {
     "@types/mapbox-gl": "^3.4.1",
@@ -24,7 +16,6 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@cloudflare/next-on-pages": "^1.8.5",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
@@ -33,7 +24,6 @@
     "eslint": "^9",
     "eslint-config-next": "15.3.1",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "wrangler": "^3.32.0"
+    "typescript": "^5"
   }
 }
