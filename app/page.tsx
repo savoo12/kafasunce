@@ -16,9 +16,9 @@ interface Venue {
 }
 
 interface CityWeather {
-  temperature: number;
-  condition: string;
-  isSunny: boolean;
+    temperature: number;
+    condition: string;
+    isSunny: boolean;
   precipitation: number;
   humidity: number;
   windSpeed: number;

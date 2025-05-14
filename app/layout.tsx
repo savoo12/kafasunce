@@ -38,6 +38,7 @@ export default function RootLayout({
           defer 
           src="https://api.mapbox.com/search-js/v1.0.0/web.js"
           strategy="beforeInteractive"
+          onLoad={() => window.dispatchEvent(new Event('mapbox-search-loaded'))}
         />
         {children}
       </body>

@@ -3,8 +3,8 @@
 import { useEffect, useRef } from 'react';
 import mapboxgl, { Map as MapboxMap } from 'mapbox-gl';
 
-// Use the public Mapbox token
-const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1Ijoic2F2bzEyMzQ1NiIsImEiOiJjbWE1dTRrdHMwbGxpMnVzaTR1dW40OWFqIn0._YHOygbBwTmRzYsKFHpi8A';
+// Use the public Mapbox Search token from environment
+const MAPBOX_ACCESS_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_SEARCH_TOKEN!;
 
 // Define window augmentation for TypeScript
 declare global {
@@ -36,68 +36,64 @@ export default function MapboxSearch({ mapRef, onSelectVenue }: MapboxSearchProp
   const searchBoxInstance = useRef<any>(null);
 
   useEffect(() => {
-    const checkSearchBoxReady = setInterval(() => {
-      if (!window.mapboxsearch || !mapRef.current || !searchBoxRef.current) return;
-      
-      clearInterval(checkSearchBoxReady);
-      if (searchBoxInstance.current) return;
-      
+    function initializeSearch() {
+      if (!MAPBOX_ACCESS_TOKEN) {
+        console.error('Mapbox Search token is missing. Set NEXT_PUBLIC_MAPBOX_SEARCH_TOKEN in your env.');
+        return;
+      }
+      if (!window.mapboxsearch) {
+        console.error('Mapbox Search JS not loaded');
+        return;
+      }
+      if (!mapRef.current || !searchBoxRef.current || searchBoxInstance.current) return;
       try {
         const searchBox = new window.mapboxsearch.MapboxSearchBox();
-        
         searchBox.accessToken = MAPBOX_ACCESS_TOKEN;
         searchBox.options = {
           proximity: [20.46, 44.81],
           countries: ['RS'],
           language: 'en',
-          limit: 5 // Limit results for mobile performance
+          limit: 5
         };
         searchBox.marker = false;
         searchBox.mapboxgl = mapboxgl;
-        
+
         const searchBoxEl = searchBox.onAdd(mapRef.current);
         searchBoxRef.current.innerHTML = '';
         searchBoxRef.current.appendChild(searchBoxEl);
-        
+
         searchBoxInstance.current = searchBox;
-        
         searchBox.addEventListener('retrieve', (event: any) => {
           const response = event.detail;
           if (!response?.features || response.features.length === 0) return;
-          
-          const selectedFeature = response.features[0];
-          const coordinates = selectedFeature.geometry?.coordinates;
-          if (!coordinates || coordinates.length < 2) return;
-          
+          const f = response.features[0];
+          const coords = f.geometry?.coordinates;
+          if (!coords || coords.length < 2) return;
           const venue: Venue = {
-            id: selectedFeature.id || Math.random().toString(36).substring(2, 9),
-            name: selectedFeature.properties?.name || 'Unknown Venue',
-            type: determineVenueType(selectedFeature.properties?.category || ''),
-            location: {
-              lng: coordinates[0],
-              lat: coordinates[1]
-            },
-            address: selectedFeature.properties?.address || '',
-            rating: 4.5, // Placeholder
-            hasOutdoorSeating: false // Placeholder
+            id: f.id || Math.random().toString(36).substring(2, 9),
+            name: f.properties?.name || 'Unknown Venue',
+            type: determineVenueType(f.properties?.category || ''),
+            location: { lng: coords[0], lat: coords[1] },
+            address: f.properties?.address || '',
+            rating: 4.5,
+            hasOutdoorSeating: false
           };
-          
           onSelectVenue(venue);
         });
-      } catch (error) {
-        console.error("Failed to initialize Mapbox SearchBox:", error);
+      } catch (err) {
+        console.error('Failed to initialize Mapbox SearchBox:', err);
       }
-    }, 100);
-    
+    }
+    // Initialize immediately if script loaded, otherwise wait for event
+    if (window.mapboxsearch) {
+      initializeSearch();
+    } else {
+      window.addEventListener('mapbox-search-loaded', initializeSearch);
+    }
     return () => {
-      clearInterval(checkSearchBoxReady);
-      if (searchBoxInstance.current && mapRef.current) {
-        try {
-          // Use searchBoxInstance.current consistently
-          searchBoxInstance.current.onRemove(); 
-        } catch (error) {
-          console.error("Error removing search box:", error);
-        }
+      window.removeEventListener('mapbox-search-loaded', initializeSearch);
+      if (searchBoxInstance.current) {
+        try { searchBoxInstance.current.onRemove(); } catch (e) { console.error('Error removing search box:', e); }
         searchBoxInstance.current = null;
       }
     };

@@ -3,8 +3,20 @@ import { type NextRequest, NextResponse } from 'next/server';
 // Explicitly set the runtime to edge for Cloudflare compatibility
 export const runtime = 'edge';
 
+// Define CORS headers
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type'
+};
+
 // Get the API key from the server-side environment variable
 const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
+
+// Handle preflight CORS requests
+export async function OPTIONS(request: NextRequest) {
+  return NextResponse.json({}, { status: 204, headers: CORS_HEADERS });
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -12,12 +24,12 @@ export async function GET(request: NextRequest) {
   const lng = searchParams.get('lon'); // OpenWeatherMap uses 'lon' 
 
   if (!lat || !lng) {
-    return NextResponse.json({ error: 'Missing latitude or longitude' }, { status: 400 });
+    return NextResponse.json({ error: 'Missing latitude or longitude' }, { status: 400, headers: CORS_HEADERS });
   }
 
   if (!WEATHER_API_KEY) {
     console.error('WEATHER_API_KEY environment variable not set');
-    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500, headers: CORS_HEADERS });
   }
 
   const apiUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&units=metric&appid=${WEATHER_API_KEY}`;
@@ -32,7 +44,7 @@ export async function GET(request: NextRequest) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`OpenWeatherMap API error: ${response.status}`, errorText);
-      return NextResponse.json({ error: `Failed to fetch weather: ${response.statusText}` }, { status: response.status });
+      return NextResponse.json({ error: `Failed to fetch weather: ${response.statusText}` }, { status: response.status, headers: CORS_HEADERS });
     }
 
     const data = await response.json();
@@ -44,10 +56,10 @@ export async function GET(request: NextRequest) {
     }
 
     console.log(`Successfully fetched weather for: ${lat}, ${lng}`);
-    return NextResponse.json(data);
+    return NextResponse.json(data, { headers: CORS_HEADERS });
 
   } catch (error) {
     console.error('Error fetching weather via API route:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: CORS_HEADERS });
   }
 } 
