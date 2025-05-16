@@ -17,9 +17,12 @@
     "worker:dev": "next build && next-on-pages && wrangler dev"
   },
   "dependencies": {
+    "@turf/turf": "^7.2.0",
     "@types/mapbox-gl": "^3.4.1",
     "mapbox-gl": "^3.11.1",
+    "mapbox-gl-shadow-simulator": "^0.60.0",
     "next": "15.3.1",
+    "osmtogeojson": "^3.0.0-beta.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

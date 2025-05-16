@@ -2,16 +2,21 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl, { Map as MapboxMap, Marker } from 'mapbox-gl';
+import ShadeMap from 'mapbox-gl-shadow-simulator';
+import osmtogeojson from 'osmtogeojson';
+import * as turf from '@turf/turf';
 import VenuesList from './components/VenuesList';
 import MapboxSearch from './components/MapboxSearch';
 import VenueRecommendations from './components/VenueRecommendations';
 import { WeatherData } from './components/WeatherService';
 import { fetchWeatherData } from './services/WeatherAPI';
+import SunControlPanel from './components/SunControlPanel';
 
 // Use the public Mapbox token via environment variable
 // Ensure this is set in your .env.local file for local development
 // and in your hosting provider's settings for deployment.
 const MAPBOX_ACCESS_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+const SHADEMAP_API_KEY = process.env.NEXT_PUBLIC_SHADEMAP_API_KEY;
 // mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN; // Set accessToken directly in Map component
 
 // Define the venue type
@@ -31,6 +36,7 @@ interface Venue {
     condition: string;
     isSunny: boolean;
   };
+  sunHours?: number;  // Total hours of sun exposure for today
 }
 
 // Define properties expected in GeoJSON features for type safety
@@ -56,6 +62,10 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [currentWeather, setCurrentWeather] = useState<WeatherData | undefined>(undefined);
+  const [controlDate, setControlDate] = useState(new Date());
+  const [isRealTime, setIsRealTime] = useState(true);
+  const [show24h, setShow24h] = useState(false);
+  const shadeMapRef = useRef<ShadeMap | null>(null);
   
   // Fetch initial data (venues and weather)
   useEffect(() => {
@@ -225,34 +235,63 @@ export default function Home() {
         // Start the animation
         requestAnimationFrame(updateSunPosition);
 
-        // Add 3D buildings layer (example using Mapbox Streets source layer)
-        // Ensure the 'building' layer from the Standard style is visible, 
-        // or add your own if using a different source. Standard should have it.
-        // Example if needed:
-        // map.current.addLayer({
-        //   'id': '3d-buildings',
-        //   'source': 'composite', // Source containing building data (varies by style)
-        //   'source-layer': 'building', // Source layer name (varies by style)
-        //   'filter': ['==', 'extrude', 'true'],
-        //   'type': 'fill-extrusion',
-        //   'minzoom': 15,
-        //   'paint': {
-        //     'fill-extrusion-color': '#aaa',
-        //     'fill-extrusion-height': [
-        //       'interpolate', ['linear'], ['zoom'],
-        //       15, 0,
-        //       15.05, ['get', 'height']
-        //     ],
-        //     'fill-extrusion-base': [
-        //       'interpolate', ['linear'], ['zoom'],
-        //       15, 0,
-        //       15.05, ['get', 'min_height']
-        //     ],
-        //     'fill-extrusion-opacity': 0.8
-        //   }
-        // });
+        // Add a 3D buildings extrusion layer so buildings cast shadows
+        map.current.addLayer({
+          id: '3d-buildings',
+          source: 'composite',
+          'source-layer': 'building',
+          filter: ['==', ['get', 'extrude'], 'true'],
+          type: 'fill-extrusion',
+          minzoom: 15,
+          paint: {
+            'fill-extrusion-color': '#aaa',
+            'fill-extrusion-height': ['get', 'height'],
+            'fill-extrusion-base': ['get', 'min_height'],
+            'fill-extrusion-opacity': 0.7
+          }
+        });
       }
       // --- End 3D lighting ---
+
+      // Initialize Mapbox GL shadow simulator
+      if (map.current) {
+        shadeMapRef.current = new ShadeMap({
+          date: controlDate,                   // Display shadows for selected date and time
+          color: '#000000',                   // Shade color
+          opacity: 0.5,                       // Shade opacity
+          sunExposure: {                     // Disable grid sun-exposure heatmap
+            enabled: false,
+            startDate: controlDate,
+            endDate: controlDate,
+            iterations: 32
+          },
+          apiKey: SHADEMAP_API_KEY!,          // ShadeMap API key (non-null assertion)
+          terrainSource: {                    // DEM terrain source configuration
+            tileSize: 256,
+            maxZoom: 15,
+            _overzoom: 0,                   // Required numeric value for plugin's type
+            getSourceUrl: ({ x, y, z }) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`,
+            getElevation: () => 0  // disable terrain shadows
+          },
+          getFeatures: async () => {
+            // Use Mapbox vector tile building features for shadows
+            const features = map.current!.querySourceFeatures('composite', {
+              sourceLayer: 'building',
+              filter: ['==', ['get', 'extrude'], 'true']
+            });
+            return Promise.resolve(features as any[]);
+          }
+        });
+        shadeMapRef.current.addTo(map.current);
+        // Ensure only instantaneous building shadows, no grid
+        shadeMapRef.current.setSunExposure(false, { startDate: controlDate, endDate: controlDate, iterations: 32 });
+        // Prime initial shadow time
+        shadeMapRef.current?.setDate(controlDate);
+        // Recompute shadows when map movement ends
+        map.current.on('moveend', () => {
+          shadeMapRef.current?.setDate(controlDate);
+        });
+      }
 
       // The GeoJSON source and layer will be added by the other useEffect hook
       // once the venues data is available and the map is loaded.
@@ -419,6 +458,25 @@ export default function Home() {
   // Checking map.current.isStyleLoaded() inside helps mitigate race conditions.
   }, [venues]); // Primarily react to changes in venues data
 
+  // Sample 24h sun exposure for each venue and attach sunHours property
+  useEffect(() => {
+    if (!shadeMapRef.current || venues.length === 0) return;
+    const sm = shadeMapRef.current!;
+    // Today's start and end
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const end = new Date(); end.setHours(23, 59, 59, 999);
+    // Enable 24h sun-exposure mode
+    sm.setSunExposure(true, { startDate: start, endDate: end, iterations: 24 });
+    // Compute sunHours for each venue
+    const updated = venues.map(v => ({
+      ...v,
+      sunHours: sm.getHoursOfSun(v.location.lng, v.location.lat)
+    }));
+    setVenues(updated);
+    // Return to instantaneous shading
+    sm.setSunExposure(false, { startDate: controlDate, endDate: controlDate, iterations: 32 });
+  }, [venues]);
+
   // MODIFIED: Handle selecting a venue (now just flies to location)
   const handleSelectVenue = useCallback((venue: Venue) => {
     if (!map.current) return;
@@ -476,6 +534,26 @@ export default function Home() {
        }
      }
   }, [venues, handleSelectVenue]); // Depend on venues and selection handler
+
+  // Update map light when controlDate changes, waiting for style to load if necessary
+  useEffect(() => {
+    if (!map.current) return;
+    const applyLight = () => {
+      const h = controlDate.getHours() + controlDate.getMinutes() / 60 + controlDate.getSeconds() / 3600;
+      const azimuth = (h / 24) * 360 + 90;
+      const polar = Math.max(0, Math.sin((h / 24) * Math.PI) * 90);
+      // Update Mapbox style light
+      map.current!.setLight({ position: [1.5, azimuth, polar] });
+      // Update ShadeMap plugin shadows
+      shadeMapRef.current?.setDate(controlDate);
+    };
+    // If style is ready, apply immediately; otherwise wait for load
+    if (map.current.isStyleLoaded()) {
+      applyLight();
+    } else {
+      map.current.once('load', applyLight);
+    }
+  }, [controlDate]);
 
   // Main component return JSX
   // Force deploy trigger
@@ -535,6 +613,14 @@ export default function Home() {
           {/* Map and Search Container */}
           <div className="absolute inset-0 z-10"> 
             <MapboxSearch mapRef={map} onSelectVenue={handleNewVenueFound} />
+            <SunControlPanel
+              controlDate={controlDate}
+              setControlDate={setControlDate}
+              isRealTime={isRealTime}
+              setIsRealTime={setIsRealTime}
+              show24h={show24h}
+              setShow24h={setShow24h}
+            />
              {/* Ensure map container takes full space */}
             <div ref={mapContainer} className="absolute inset-0 map-container" /> 
           </div>

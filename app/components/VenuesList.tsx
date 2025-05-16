@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import FilterButton from './FilterButton';
 
 // Define the venue type (matching the one in page.tsx)
 interface Venue {
@@ -43,46 +44,25 @@ export default function VenuesList({ venues, onSelectVenue }: VenuesListProps) {
         <h2 className="text-xl font-semibold">Venues in Belgrade</h2>
         
         <div className="flex mt-2 space-x-2 overflow-x-auto py-2">
-          <button 
-            onClick={() => setFilter('all')}
-            className={`px-3 py-1 rounded-full text-sm whitespace-nowrap ${
-              filter === 'all' 
-                ? 'bg-blue-500 text-white' 
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-            }`}
-          >
-            All
-          </button>
-          <button 
+          <FilterButton label="All" active={filter === 'all'} onClick={() => setFilter('all')} />
+          <FilterButton
+            label="Sunny Places"
+            active={filter === 'sunny'}
             onClick={() => setFilter('sunny')}
-            className={`px-3 py-1 rounded-full text-sm whitespace-nowrap ${
-              filter === 'sunny' 
-                ? 'bg-yellow-500 text-white' 
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-            }`}
-          >
-            Sunny Places
-          </button>
-          <button 
+            activeClass="bg-yellow-500 text-white"
+          />
+          <FilterButton
+            label="Cafes"
+            active={filter === 'cafe'}
             onClick={() => setFilter('cafe')}
-            className={`px-3 py-1 rounded-full text-sm whitespace-nowrap ${
-              filter === 'cafe' 
-                ? 'bg-green-500 text-white' 
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-            }`}
-          >
-            Cafes
-          </button>
-          <button 
+            activeClass="bg-green-500 text-white"
+          />
+          <FilterButton
+            label="Pubs"
+            active={filter === 'pub'}
             onClick={() => setFilter('pub')}
-            className={`px-3 py-1 rounded-full text-sm whitespace-nowrap ${
-              filter === 'pub' 
-                ? 'bg-purple-500 text-white' 
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-            }`}
-          >
-            Pubs
-          </button>
+            activeClass="bg-purple-500 text-white"
+          />
         </div>
       </div>
       
